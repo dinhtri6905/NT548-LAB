@@ -22,7 +22,7 @@ resource "aws_security_group" "public_ec2" {
   }
 
   tags = {
-    Name = "?"
+    Name = "${var.project_name}-public-sg"
   }
 }
 
@@ -50,7 +50,7 @@ resource "aws_security_group" "private_ec2" {
   }
 
   tags = {
-    Name = "?"
+    Name = "${var.project_name}-private-sg"
   }
 }
 
