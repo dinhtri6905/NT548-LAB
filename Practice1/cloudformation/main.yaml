@@ -1,0 +1,122 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Root stack - NT548 Lab AWS Infrastructure
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: nt548-lab01
+  VpcCidr:
+    Type: String
+    Default: 10.0.0.0/16
+  PublicSubnetCidr:
+    Type: String
+    Default: 10.0.1.0/24
+  PrivateSubnetCidr:
+    Type: String
+    Default: 10.0.2.0/24
+  AvailabilityZone:
+    Type: String
+    Default: ap-southeast-1a
+  MyIp:
+    Type: String
+    Description: Your public IP address (without /32)
+  AmiId:
+    Type: AWS::EC2::Image::Id
+    Default: ami-0df7a207adb9748c7
+  InstanceType:
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+      - t2.micro
+      - t2.small
+      - t3.micro
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Ten Key Pair da tao tren AWS Console
+  TemplatesBucketUrl:
+    Type: String
+    Description: "S3 URL chua templates, vi du: https://s3.amazonaws.com/my-bucket"
+
+Resources:
+  NetworkStack:
+    Type: AWS::CloudFormation::Stack
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      TemplateURL:
+        Fn::Sub: "${TemplatesBucketUrl}/templates/network.yaml"
+      Parameters:
+        ProjectName:
+          Ref: ProjectName
+        VpcCidr:
+          Ref: VpcCidr
+        PublicSubnetCidr:
+          Ref: PublicSubnetCidr
+        PrivateSubnetCidr:
+          Ref: PrivateSubnetCidr
+        AvailabilityZone:
+          Ref: AvailabilityZone
+
+  SecurityGroupStack:
+    Type: AWS::CloudFormation::Stack
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      TemplateURL:
+        Fn::Sub: "${TemplatesBucketUrl}/templates/security-group.yaml"
+      Parameters:
+        ProjectName:
+          Ref: ProjectName
+        VpcId:
+          Fn::GetAtt:
+            - NetworkStack
+            - Outputs.VpcId
+        MyIp:
+          Ref: MyIp
+
+  EC2Stack:
+    Type: AWS::CloudFormation::Stack
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      TemplateURL:
+        Fn::Sub: "${TemplatesBucketUrl}/templates/ec2.yaml"
+      Parameters:
+        ProjectName:
+          Ref: ProjectName
+        AmiId:
+          Ref: AmiId
+        InstanceType:
+          Ref: InstanceType
+        KeyName:
+          Ref: KeyName
+        PublicSubnetId:
+          Fn::GetAtt:
+            - NetworkStack
+            - Outputs.PublicSubnetId
+        PrivateSubnetId:
+          Fn::GetAtt:
+            - NetworkStack
+            - Outputs.PrivateSubnetId
+        PublicSGId:
+          Fn::GetAtt:
+            - SecurityGroupStack
+            - Outputs.PublicSGId
+        PrivateSGId:
+          Fn::GetAtt:
+            - SecurityGroupStack
+            - Outputs.PrivateSGId
+
+Outputs:
+  PublicEC2IP:
+    Description: IP Public de SSH
+    Value:
+      Fn::GetAtt:
+        - EC2Stack
+        - Outputs.PublicEC2IP
+  PrivateEC2IP:
+    Description: IP Private cua Private EC2
+    Value:
+      Fn::GetAtt:
+        - EC2Stack
+        - Outputs.PrivateEC2IP
